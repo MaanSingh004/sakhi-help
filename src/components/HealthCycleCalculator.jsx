@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import { Calendar, Heart, Sparkles, RefreshCw } from "lucide-react";
+import { tracker } from "../services/tracker";
 
 export default function HealthCycleCalculator() {
   const today = new Date().toISOString().split("T")[0];
@@ -61,6 +62,8 @@ export default function HealthCycleCalculator() {
       tip,
       badgeClass
     });
+
+    tracker.logCycleCalculated(length, phase);
   };
 
   return (

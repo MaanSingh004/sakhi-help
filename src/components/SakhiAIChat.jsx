@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { Send, Volume2, VolumeX, Trash2, ShieldAlert, Sparkles, AlertCircle } from "lucide-react";
+import { tracker } from "../services/tracker";
 
 export default function SakhiAIChat() {
   const [messages, setMessages] = useState([
@@ -113,6 +114,7 @@ export default function SakhiAIChat() {
       setMessages((prev) => [...prev, botMsg]);
       setIsTyping(false);
       speakText(response.text);
+      tracker.logAIQuestion(query.substring(0, 50), response.isCrisis);
     }, 600);
   };
 

@@ -1,7 +1,7 @@
 import React from "react";
-import { Shield, Globe, EyeOff } from "lucide-react";
+import { Shield, Globe, EyeOff, Lock } from "lucide-react";
 
-export default function Header({ activePage, setActivePage, onPanicTrigger, language, setLanguage }) {
+export default function Header({ activePage, setActivePage, onPanicTrigger, onOpenAdmin, language, setLanguage }) {
   const navItems = [
     { id: "home", label: language === "hi" ? "होम" : "Home" },
     { id: "doctor", label: language === "hi" ? "सखी AI" : "Sakhi AI" },
@@ -44,6 +44,16 @@ export default function Header({ activePage, setActivePage, onPanicTrigger, lang
         >
           <Globe size={13} style={{ display: "inline", marginRight: 4 }} />
           {language === "en" ? "हिन्दी" : "English"}
+        </button>
+
+        <button
+          className="lang-btn"
+          onClick={onOpenAdmin}
+          title="Open Admin Analytics & User Tracking Portal"
+          style={{ background: "#f5f0f8", border: "1px solid #e2d2e2", color: "#543c5e" }}
+        >
+          <Lock size={12} style={{ display: "inline", marginRight: 4 }} />
+          Admin
         </button>
 
         <button

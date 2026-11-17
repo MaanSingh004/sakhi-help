@@ -29,6 +29,8 @@ import SakhiAIChat from "./components/SakhiAIChat";
 import HealthCycleCalculator from "./components/HealthCycleCalculator";
 import EligibilityModal from "./components/EligibilityModal";
 import HealthDetailModal from "./components/HealthDetailModal";
+import AdminPanel from "./components/AdminPanel";
+import { tracker } from "./services/tracker";
 
 import { SCHOLARSHIPS_DATA } from "./data/scholarships";
 import { HEALTH_TOPICS } from "./data/healthTopics";
@@ -39,6 +41,7 @@ export default function App() {
   const [activePage, setActivePage] = useState("home");
   const [language, setLanguage] = useState("en");
   const [isPanicActive, setIsPanicActive] = useState(false);
+  const [isAdminOpen, setIsAdminOpen] = useState(false);
 
   // Modals state
   const [selectedScholarship, setSelectedScholarship] = useState(null);
@@ -97,10 +100,17 @@ export default function App() {
     study: false
   });
 
+  // Track page navigation changes automatically
+  useEffect(() => {
+    tracker.logPageView(activePage);
+  }, [activePage]);
+
   const toggleBookmark = (id) => {
     setBookmarkedIds((prev) => {
-      const updated = prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id];
+      const isNowBookmarked = !prev.includes(id);
+      const updated = isNowBookmarked ? [...prev, id] : prev.filter((item) => item !== id);
       localStorage.setItem("sakhi_saved_scholarships", JSON.stringify(updated));
+      tracker.logScholarshipBookmark(id, isNowBookmarked ? "saved" : "removed");
       return updated;
     });
   };
@@ -144,6 +154,7 @@ export default function App() {
     const updated = [newPost, ...communityPosts];
     setCommunityPosts(updated);
     localStorage.setItem("sakhi_community_posts", JSON.stringify(updated));
+    tracker.logEvent("community_post_created", { tag: newPostTag, title: newPostTitle }, "community");
     setNewPostTitle("");
     setNewPostContent("");
     setIsNewPostOpen(false);
@@ -166,6 +177,7 @@ export default function App() {
     const updated = [item, ...feedbackList];
     setFeedbackList(updated);
     localStorage.setItem("sakhiFeedback", JSON.stringify(updated));
+    tracker.logEvent("feedback_submitted", { rating: fbRating, interest: fbInterest }, "feedback");
     setFbSuggestion("");
     setFbSuccessMsg("Thank you! Your feedback has been securely recorded for the prototype.");
     setTimeout(() => setFbSuccessMsg(""), 6000);
@@ -221,7 +233,11 @@ export default function App() {
       <Header
         activePage={activePage}
         setActivePage={setActivePage}
-        onPanicTrigger={() => setIsPanicActive(true)}
+        onPanicTrigger={() => {
+          tracker.logPanicTrigger(activePage);
+          setIsPanicActive(true);
+        }}
+        onOpenAdmin={() => setIsAdminOpen(true)}
         language={language}
         setLanguage={setLanguage}
       />
@@ -388,7 +404,10 @@ export default function App() {
                   key={topic.id}
                   className="tile"
                   style={{ cursor: "pointer" }}
-                  onClick={() => setSelectedHealthTopic(topic)}
+                  onClick={() => {
+                    setSelectedHealthTopic(topic);
+                    tracker.logHealthTopicRead(topic);
+                  }}
                 >
                   <div className={`emoji ${topic.colorClass}`}>{topic.emoji}</div>
                   <h3>{topic.title}</h3>
@@ -702,7 +721,10 @@ export default function App() {
                         <button
                           className="btn sm"
                           style={{ width: "100%" }}
-                          onClick={() => setSelectedScholarship(s)}
+                          onClick={() => {
+                            setSelectedScholarship(s);
+                            tracker.logScholarshipView(s);
+                          }}
                         >
                           Check Eligibility Checklist →
                         </button>
@@ -892,7 +914,7 @@ export default function App() {
                 <h3>112 — National Emergency</h3>
                 <p>Police, Ambulance & Fire combined emergency service for immediate life danger across India.</p>
                 <div style={{ marginTop: 16 }}>
-                  <a href="tel:112" className="btn danger sm" style={{ width: "100%" }}>
+                  <a href="tel:112" className="btn danger sm" style={{ width: "100%" }} onClick={() => tracker.logEmergencyClick("112 — National Emergency")}>
                     <PhoneCall size={14} /> Call 112 Now
                   </a>
                 </div>
@@ -903,7 +925,7 @@ export default function App() {
                 <h3>181 — Women Helpline</h3>
                 <p>Toll-free 24/7 dedicated helpline for women facing domestic distress, harassment, or violence.</p>
                 <div style={{ marginTop: 16 }}>
-                  <a href="tel:181" className="btn sm" style={{ width: "100%" }}>
+                  <a href="tel:181" className="btn sm" style={{ width: "100%" }} onClick={() => tracker.logEmergencyClick("181 — Women Helpline")}>
                     <PhoneCall size={14} /> Call 181
                   </a>
                 </div>
@@ -914,7 +936,7 @@ export default function App() {
                 <h3>1098 — Childline India</h3>
                 <p>Emergency assistance and safeguarding for any girl or child under 18 years in distress.</p>
                 <div style={{ marginTop: 16 }}>
-                  <a href="tel:1098" className="btn secondary sm" style={{ width: "100%" }}>
+                  <a href="tel:1098" className="btn secondary sm" style={{ width: "100%" }} onClick={() => tracker.logEmergencyClick("1098 — Childline")}>
                     <PhoneCall size={14} /> Call 1098
                   </a>
                 </div>
@@ -925,7 +947,7 @@ export default function App() {
                 <h3>1930 — Cyber Crime Helpline</h3>
                 <p>For reporting online harassment, morphed photos, blackmail, or digital cyber fraud.</p>
                 <div style={{ marginTop: 16 }}>
-                  <a href="tel:1930" className="btn secondary sm" style={{ width: "100%" }}>
+                  <a href="tel:1930" className="btn secondary sm" style={{ width: "100%" }} onClick={() => tracker.logEmergencyClick("1930 — Cyber Helpline")}>
                     <PhoneCall size={14} /> Call 1930
                   </a>
                 </div>
@@ -936,7 +958,7 @@ export default function App() {
                 <h3>14416 — Tele-MANAS</h3>
                 <p>Free Government of India mental health counseling helpline for stress, anxiety, and emotional support.</p>
                 <div style={{ marginTop: 16 }}>
-                  <a href="tel:14416" className="btn secondary sm" style={{ width: "100%" }}>
+                  <a href="tel:14416" className="btn secondary sm" style={{ width: "100%" }} onClick={() => tracker.logEmergencyClick("14416 — Tele-MANAS")}>
                     <PhoneCall size={14} /> Call 14416
                   </a>
                 </div>
@@ -1079,6 +1101,11 @@ export default function App() {
           topic={selectedHealthTopic}
           onClose={() => setSelectedHealthTopic(null)}
         />
+      )}
+
+      {/* Admin Analytics & Tracking Panel */}
+      {isAdminOpen && (
+        <AdminPanel onClose={() => setIsAdminOpen(false)} />
       )}
 
       {/* Mobile Navigation Bar */}
