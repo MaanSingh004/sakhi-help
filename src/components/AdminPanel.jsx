@@ -167,6 +167,7 @@ export default function AdminPanel({ onClose }) {
     home: events.filter((e) => e.page === "home").length,
     doctor: events.filter((e) => e.page === "doctor").length,
     health: events.filter((e) => e.page === "health").length,
+    reels: events.filter((e) => e.page === "reels").length,
     scholarships: events.filter((e) => e.page === "scholarships").length,
     career: events.filter((e) => e.page === "career").length,
     help: events.filter((e) => e.page === "help").length,
@@ -388,8 +389,9 @@ export default function AdminPanel({ onClose }) {
                   {[
                     { label: "Home", count: pageVisits.home, color: "#f472b6" },
                     { label: "Health Hub & Calculator", count: pageVisits.health, color: "#34d399" },
-                    { label: "Sakhi AI Health Companion", count: pageVisits.doctor, color: "#a78bfa" },
-                    { label: "Scholarships & Scooty", count: pageVisits.scholarships, color: "#38bdf8" },
+                    { label: "Dr. Sushma (AI Companion)", count: pageVisits.doctor, color: "#a78bfa" },
+                    { label: "Learning Reels 🎬", count: pageVisits.reels, color: "#ec4899" },
+                    { label: "Scholarships & Finder", count: pageVisits.scholarships, color: "#38bdf8" },
                     { label: "Help & Emergency", count: pageVisits.help, color: "#fb7185" },
                     { label: "Careers by Age", count: pageVisits.career, color: "#fbbf24" }
                   ].map((sec) => {

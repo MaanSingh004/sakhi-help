@@ -1,12 +1,13 @@
 import React from "react";
-import { Shield, Globe, EyeOff, Lock } from "lucide-react";
+import { Shield, Globe, EyeOff, Lock, Film } from "lucide-react";
 
 export default function Header({ activePage, setActivePage, onPanicTrigger, onOpenAdmin, language, setLanguage }) {
   const navItems = [
     { id: "home", label: language === "hi" ? "होम" : "Home" },
-    { id: "doctor", label: language === "hi" ? "सखी AI" : "Sakhi AI" },
+    { id: "doctor", label: language === "hi" ? "डॉ. सुषमा" : "Dr. Sushma" },
     { id: "health", label: language === "hi" ? "स्वास्थ्य हब" : "Health Hub" },
     { id: "learn", label: language === "hi" ? "सीखें और बढ़ें" : "Learn & Grow" },
+    { id: "reels", label: language === "hi" ? "🎬 रील्स" : "🎬 Reels", isHighlight: true },
     { id: "career", label: language === "hi" ? "कैरियर मार्ग" : "Careers" },
     { id: "scholarships", label: language === "hi" ? "छात्रवृत्तियां" : "Scholarships" },
     { id: "community", label: language === "hi" ? "समुदाय" : "Community" },
@@ -28,8 +29,9 @@ export default function Header({ activePage, setActivePage, onPanicTrigger, onOp
         {navItems.map((item) => (
           <button
             key={item.id}
-            className={activePage === item.id ? "active" : ""}
+            className={`${activePage === item.id ? "active" : ""} ${item.isHighlight ? "reels-highlight" : ""}`}
             onClick={() => setActivePage(item.id)}
+            style={item.isHighlight && activePage !== item.id ? { background: "#fff", color: "var(--brand)", border: "1px solid #ebd0df" } : {}}
           >
             {item.label}
           </button>

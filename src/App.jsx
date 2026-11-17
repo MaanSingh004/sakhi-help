@@ -30,6 +30,8 @@ import HealthCycleCalculator from "./components/HealthCycleCalculator";
 import EligibilityModal from "./components/EligibilityModal";
 import HealthDetailModal from "./components/HealthDetailModal";
 import AdminPanel from "./components/AdminPanel";
+import ReelsSection from "./components/ReelsSection";
+import ScholarshipLocationFinder from "./components/ScholarshipLocationFinder";
 import { tracker } from "./services/tracker";
 
 import { SCHOLARSHIPS_DATA } from "./data/scholarships";
@@ -273,12 +275,15 @@ export default function App() {
 
                 <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 8 }}>
                   <button className="btn" onClick={() => setActivePage("doctor")}>
-                    <Sparkles size={16} /> Talk to Sakhi AI →
+                    <Sparkles size={16} /> Talk to AI Doctor Sushma →
                   </button>
                   <button className="btn secondary" onClick={() => setActivePage("health")}>
                     Explore Health Hub
                   </button>
-                  <button className="btn soft" onClick={() => setActivePage("scholarships")}>
+                  <button className="btn soft" onClick={() => setActivePage("reels")}>
+                    🎬 Watch Reels
+                  </button>
+                  <button className="btn secondary" onClick={() => setActivePage("scholarships")}>
                     Find Scholarships
                   </button>
                 </div>
@@ -297,10 +302,10 @@ export default function App() {
                 </div>
               </div>
               <div style={{ background: "white", border: "1px solid var(--line)", padding: "14px 18px", borderRadius: 16, display: "flex", alignItems: "center", gap: 12 }}>
-                <div style={{ fontSize: 24 }}>🛵</div>
+                <div style={{ fontSize: 24 }}>🎬</div>
                 <div>
-                  <b style={{ fontSize: 16, color: "var(--ink)" }}>Scooty & Aid Schemes</b>
-                  <div style={{ fontSize: 12, color: "var(--muted)" }}>Devnarayan, Kalibai & more</div>
+                  <b style={{ fontSize: 16, color: "var(--ink)" }}>Learning Reels</b>
+                  <div style={{ fontSize: 12, color: "var(--muted)" }}>UNICEF & WHO health videos</div>
                 </div>
               </div>
               <div style={{ background: "white", border: "1px solid var(--line)", padding: "14px 18px", borderRadius: 16, display: "flex", alignItems: "center", gap: 12 }}>
@@ -320,9 +325,15 @@ export default function App() {
             </div>
 
             <div className="grid">
+              <button className="tile" onClick={() => setActivePage("reels")}>
+                <div className="emoji pink">🎬</div>
+                <h3>Learning Reels</h3>
+                <p>Videos about growing up, periods, safety, health and careers.</p>
+              </button>
+
               <button className="tile" onClick={() => setActivePage("doctor")}>
                 <div className="emoji pink">🩺</div>
-                <h3>Sakhi AI Health Guide</h3>
+                <h3>AI Doctor Sushma</h3>
                 <p>Ask confidential questions about periods, puberty, hygiene, nutrition & PCOS.</p>
               </button>
 
@@ -341,7 +352,7 @@ export default function App() {
               <button className="tile" onClick={() => setActivePage("scholarships")}>
                 <div className="emoji gold">🏅</div>
                 <h3>Scholarships & Benefits</h3>
-                <p>Explore central & Rajasthan schemes with instant eligibility checklist.</p>
+                <p>Explore central & Rajasthan schemes with instant location & category matcher.</p>
               </button>
 
               <button className="tile" onClick={() => setActivePage("community")}>
@@ -376,15 +387,20 @@ export default function App() {
           <div>
             <div className="section-head">
               <div>
-                <span className="eyebrow">Confidential Health Education</span>
-                <h2>Sakhi AI — Health Companion</h2>
-                <p>Empathetic, clear, non-judgmental answers to questions about your body and wellbeing.</p>
+                <span className="eyebrow">Private Health Education Demo</span>
+                <h2>Dr. Sushma — AI Women's Health Companion</h2>
+                <p>Evidence-informed, conversational guidance in Hindi, English and Hinglish.</p>
               </div>
-              <span className="tag">INTERACTIVE ASSISTANT</span>
+              <span className="tag">AI-POWERED GUIDE</span>
             </div>
 
             <SakhiAIChat />
           </div>
+        )}
+
+        {/* ===================== PAGE: REELS ===================== */}
+        {activePage === "reels" && (
+          <ReelsSection />
         )}
 
         {/* ===================== PAGE: HEALTH HUB ===================== */}
@@ -638,6 +654,16 @@ export default function App() {
               </div>
             </div>
 
+            {/* Interactive Location, District & Level Matcher Tool */}
+            <ScholarshipLocationFinder />
+
+            <div className="section-head" style={{ marginTop: 20 }}>
+              <div>
+                <h3>Explore Verified Schemes by Category</h3>
+                <p>Search, bookmark, and test your eligibility checklist on all official schemes.</p>
+              </div>
+            </div>
+
             {/* Search & Category Filter */}
             <div style={{ display: "flex", gap: 10, flexWrap: "wrap", margin: "14px 0" }}>
               <div style={{ position: "relative", flex: "1 1 240px" }}>
@@ -740,21 +766,39 @@ export default function App() {
               <h3 style={{ marginTop: 0 }}>Official Portals — Always Verify Latest Notifications</h3>
               <ul className="list">
                 <li>
+                  <a href="https://scholarships.gov.in/All-Scholarships" target="_blank" rel="noopener noreferrer">
+                    NSP All-Scholarships List (2026–27)
+                  </a> — Current central scheme circulars, application windows, and deadlines.
+                </li>
+                <li>
+                  <a href="https://services.india.gov.in/service/detail/students-apply-for-scholarship-on-national-scholarship-portal" target="_blank" rel="noopener noreferrer">
+                    National Government Services Portal
+                  </a> — Central scholarship discovery by gender, age, domicile state, and annual income.
+                </li>
+                <li>
                   <a href="https://scholarships.gov.in/" target="_blank" rel="noopener noreferrer">
                     National Scholarship Portal (NSP)
-                  </a> — Central schemes and national guidelines.
+                  </a> — Central portal for Pre-Matric, Post-Matric, Top Class, and Minority awards.
                 </li>
                 <li>
                   <a href="https://scholarship.rajasthan.gov.in/" target="_blank" rel="noopener noreferrer">
                     Rajasthan Scholarship Portal
-                  </a> — State Post-Matric, MBC, and CM scholarship schemes.
+                  </a> — State Post-Matric, Balika Distance Education, and CM B.Ed. Sambal schemes.
                 </li>
                 <li>
                   <a href="https://hte.rajasthan.gov.in/" target="_blank" rel="noopener noreferrer">
                     Higher & Technical Education (HTE Rajasthan)
-                  </a> — Devnarayan and Kalibai Scooty Yojana notifications.
+                  </a> — Devnarayan and Kalibai Bheel Medhavi Scooty Yojana official notices.
+                </li>
+                <li>
+                  <a href="https://socialjustice.gov.in/schemes" target="_blank" rel="noopener noreferrer">
+                    Department of Social Justice & Empowerment
+                  </a> — Central SC, OBC, EBC, and DNT welfare guidelines.
                 </li>
               </ul>
+              <p style={{ fontSize: 13, color: "var(--muted)", margin: "14px 0 0" }}>
+                Before applying, read the latest scheme guideline and check deadlines, required income certificates, renewal criteria, and approved institution lists. This platform is an educational guide and does not charge any fee.
+              </p>
             </div>
           </div>
         )}
