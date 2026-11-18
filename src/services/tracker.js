@@ -1,10 +1,38 @@
 // Anonymous User Activity & Journey Tracking Engine for Sakhi Platform
+import { SUPABASE_CONFIG, isSupabaseConfigured } from "../config/supabase";
 
 const VISITOR_ID_KEY = "sakhi_visitor_id";
 const SESSION_ID_KEY = "sakhi_session_id";
 const EVENTS_STORAGE_KEY = "sakhi_analytics_events";
 const VISITORS_STORAGE_KEY = "sakhi_analytics_visitors";
 const SUPABASE_CONFIG_KEY = "sakhi_supabase_config";
+
+// Resolve active Supabase credentials (codebase config takes priority)
+function getActiveCloudConfig() {
+  if (isSupabaseConfigured()) {
+    return {
+      url: SUPABASE_CONFIG.url.trim().replace(/\/+$/, ""),
+      anonKey: SUPABASE_CONFIG.anonKey.trim(),
+      source: "codebase"
+    };
+  }
+  try {
+    const raw = localStorage.getItem(SUPABASE_CONFIG_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (parsed.url && parsed.anonKey) {
+        return {
+          url: parsed.url.trim().replace(/\/+$/, ""),
+          anonKey: parsed.anonKey.trim(),
+          source: "localStorage"
+        };
+      }
+    }
+  } catch {
+    // fallback
+  }
+  return null;
+}
 
 // Generate a random unique identifier
 function generateId(prefix = "id") {
@@ -73,7 +101,7 @@ export function getOrCreateSessionId() {
   }
 }
 
-// Save or update visitor metadata
+// Save or update visitor metadata in local storage
 function updateVisitorRecord(visitorId, deviceInfo, firstEvent) {
   try {
     const raw = localStorage.getItem(VISITORS_STORAGE_KEY);
@@ -105,20 +133,18 @@ function updateVisitorRecord(visitorId, deviceInfo, firstEvent) {
   }
 }
 
-// Cloud sync adapter (Supabase) if configured
+// Cloud sync adapter (Supabase)
 async function syncToSupabase(event) {
   try {
-    const configRaw = localStorage.getItem(SUPABASE_CONFIG_KEY);
-    if (!configRaw) return;
-    const { url, anonKey } = JSON.parse(configRaw);
-    if (!url || !anonKey) return;
+    const cloud = getActiveCloudConfig();
+    if (!cloud) return;
 
-    await fetch(`${url}/rest/v1/analytics_events`, {
+    await fetch(`${cloud.url}/rest/v1/analytics_events`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        "apikey": anonKey,
-        "Authorization": `Bearer ${anonKey}`,
+        "apikey": cloud.anonKey,
+        "Authorization": `Bearer ${cloud.anonKey}`,
         "Prefer": "return=minimal"
       },
       body: JSON.stringify({
@@ -132,7 +158,7 @@ async function syncToSupabase(event) {
         created_at: event.timestamp
       })
     });
-  } catch {
+  } catch (err) {
     // Ignore network sync issues silently in background
   }
 }
@@ -293,10 +319,10 @@ export const tracker = {
       if (events.length > 2000) events.pop();
       localStorage.setItem(EVENTS_STORAGE_KEY, JSON.stringify(events));
 
-      // 2. Update Visitor Index
+      // 2. Update Local Visitor Index
       updateVisitorRecord(visitorId, device, event);
 
-      // 3. Sync to Supabase cloud if configured
+      // 3. Sync to Supabase cloud immediately
       syncToSupabase(event);
 
       return event;
@@ -358,7 +384,100 @@ export const tracker = {
     return this.logEvent("panic_exit_triggered", { fromPage }, fromPage);
   },
 
-  // Retrieve all logged events
+  // Check if Central Cloud Database is connected
+  isCloudConfigured() {
+    return !!getActiveCloudConfig();
+  },
+
+  getCloudConfig() {
+    return getActiveCloudConfig();
+  },
+
+  // Fetch real analytics from the central cloud database (all users & devices)
+  async fetchLiveAnalytics() {
+    const cloud = getActiveCloudConfig();
+    if (!cloud) {
+      return {
+        events: this.getEvents(),
+        visitors: this.getVisitors(),
+        isCloud: false,
+        source: "local"
+      };
+    }
+
+    try {
+      const res = await fetch(`${cloud.url}/rest/v1/analytics_events?select=*&order=created_at.desc&limit=1500`, {
+        headers: {
+          "apikey": cloud.anonKey,
+          "Authorization": `Bearer ${cloud.anonKey}`,
+          "Content-Type": "application/json"
+        }
+      });
+
+      if (!res.ok) {
+        throw new Error(`Cloud returned status ${res.status}`);
+      }
+
+      const rows = await res.json();
+
+      // Transform rows to event objects
+      const cloudEvents = rows.map((r) => ({
+        id: r.id,
+        visitorId: r.visitor_id,
+        sessionId: r.session_id,
+        type: r.event_type,
+        page: r.page,
+        details: r.details,
+        device: {
+          deviceType: r.device_type,
+          browser: r.browser
+        },
+        timestamp: r.created_at
+      }));
+
+      // Reconstruct visitor list across all devices
+      const cloudVisitors = {};
+      cloudEvents.forEach((e) => {
+        const vId = e.visitorId;
+        if (!cloudVisitors[vId]) {
+          cloudVisitors[vId] = {
+            id: vId,
+            firstSeen: e.timestamp,
+            lastSeen: e.timestamp,
+            device: e.device,
+            eventsCount: 1,
+            lastPage: e.page || "home",
+            pagesVisited: [e.page || "home"]
+          };
+        } else {
+          cloudVisitors[vId].eventsCount += 1;
+          if (e.page && !cloudVisitors[vId].pagesVisited.includes(e.page)) {
+            cloudVisitors[vId].pagesVisited.push(e.page);
+          }
+          if (new Date(e.timestamp) < new Date(cloudVisitors[vId].firstSeen)) {
+            cloudVisitors[vId].firstSeen = e.timestamp;
+          }
+        }
+      });
+
+      return {
+        events: cloudEvents,
+        visitors: cloudVisitors,
+        isCloud: true,
+        source: cloud.source
+      };
+    } catch (err) {
+      console.warn("Failed to fetch cloud analytics, falling back to local:", err);
+      return {
+        events: this.getEvents(),
+        visitors: this.getVisitors(),
+        isCloud: false,
+        source: "local (cloud offline)"
+      };
+    }
+  },
+
+  // Retrieve local fallback events
   getEvents() {
     try {
       const raw = localStorage.getItem(EVENTS_STORAGE_KEY);
@@ -368,7 +487,7 @@ export const tracker = {
     }
   },
 
-  // Retrieve all visitors metadata
+  // Retrieve local fallback visitors metadata
   getVisitors() {
     try {
       const raw = localStorage.getItem(VISITORS_STORAGE_KEY);
@@ -378,7 +497,7 @@ export const tracker = {
     }
   },
 
-  // Clear all tracking data
+  // Clear local tracking data
   clearData() {
     try {
       localStorage.removeItem(EVENTS_STORAGE_KEY);
@@ -393,29 +512,5 @@ export const tracker = {
   resetSampleData() {
     this.clearData();
     ensureSampleData();
-  },
-
-  // Save Supabase credentials for cloud persistence
-  setSupabaseConfig(url, anonKey) {
-    try {
-      if (!url || !anonKey) {
-        localStorage.removeItem(SUPABASE_CONFIG_KEY);
-      } else {
-        localStorage.setItem(SUPABASE_CONFIG_KEY, JSON.stringify({ url: url.trim(), anonKey: anonKey.trim() }));
-      }
-      return true;
-    } catch {
-      return false;
-    }
-  },
-
-  // Get Supabase credentials
-  getSupabaseConfig() {
-    try {
-      const raw = localStorage.getItem(SUPABASE_CONFIG_KEY);
-      return raw ? JSON.parse(raw) : { url: "", anonKey: "" };
-    } catch {
-      return { url: "", anonKey: "" };
-    }
   }
 };

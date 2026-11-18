@@ -22,9 +22,13 @@ import {
   Bot,
   Heart,
   Compass,
-  FileSpreadsheet
+  FileSpreadsheet,
+  Cloud,
+  Check,
+  Copy
 } from "lucide-react";
 import { tracker } from "../services/tracker";
+import { SUPABASE_CONFIG, isSupabaseConfigured } from "../config/supabase";
 import { SUPABASE_SQL_SCHEMA } from "../services/supabaseSchema";
 
 export default function AdminPanel({ onClose }) {
@@ -42,29 +46,28 @@ export default function AdminPanel({ onClose }) {
   const [events, setEvents] = useState([]);
   const [visitors, setVisitors] = useState({});
   const [selectedVisitorId, setSelectedVisitorId] = useState(null);
+  const [isLiveCloud, setIsLiveCloud] = useState(false);
+  const [cloudSource, setCloudSource] = useState("");
+  const [isLoadingData, setIsLoadingData] = useState(false);
+  const [copiedSchema, setCopiedSchema] = useState(false);
 
   // Filters for feed
   const [eventTypeFilter, setEventTypeFilter] = useState("All");
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Supabase cloud config state
-  const [supabaseUrl, setSupabaseUrl] = useState("");
-  const [supabaseKey, setSupabaseKey] = useState("");
-  const [cloudStatus, setCloudStatus] = useState("");
-
-  const loadData = () => {
-    const evts = tracker.getEvents();
-    const vis = tracker.getVisitors();
-    setEvents(evts);
-    setVisitors(vis);
+  const loadData = async () => {
+    setIsLoadingData(true);
+    const res = await tracker.fetchLiveAnalytics();
+    setEvents(res.events || []);
+    setVisitors(res.visitors || {});
+    setIsLiveCloud(res.isCloud);
+    setCloudSource(res.source || "");
+    setIsLoadingData(false);
   };
 
   useEffect(() => {
     if (isAuthenticated) {
       loadData();
-      const cfg = tracker.getSupabaseConfig();
-      setSupabaseUrl(cfg.url || "");
-      setSupabaseKey(cfg.anonKey || "");
     }
   }, [isAuthenticated]);
 
@@ -84,11 +87,10 @@ export default function AdminPanel({ onClose }) {
     localStorage.removeItem("sakhi_admin_authed");
   };
 
-  const handleSaveCloudConfig = (e) => {
-    e.preventDefault();
-    tracker.setSupabaseConfig(supabaseUrl, supabaseKey);
-    setCloudStatus("Cloud configuration saved successfully! Events will now sync to Supabase.");
-    setTimeout(() => setCloudStatus(""), 5000);
+  const handleCopySQL = () => {
+    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
+    setCopiedSchema(true);
+    setTimeout(() => setCopiedSchema(false), 3000);
   };
 
   const handleExportCSV = () => {
@@ -121,6 +123,7 @@ export default function AdminPanel({ onClose }) {
   const handleExportJSON = () => {
     const data = {
       exportDate: new Date().toISOString(),
+      databaseMode: isLiveCloud ? "Supabase Central Cloud" : "Local Storage",
       totalEvents: events.length,
       totalVisitors: Object.keys(visitors).length,
       events,
@@ -150,17 +153,17 @@ export default function AdminPanel({ onClose }) {
 
   // Calculations for Overview stats
   const visitorList = Object.values(visitors);
-  const totalVisitorsCount = visitorList.length || 1;
+  const totalVisitorsCount = visitorList.length || 0;
   const totalEventsCount = events.length;
 
   const mobileCount = visitorList.filter((v) => v.device?.deviceType === "Mobile").length;
   const desktopCount = visitorList.filter((v) => v.device?.deviceType === "Desktop").length;
-  const mobilePercent = Math.round((mobileCount / totalVisitorsCount) * 100) || 50;
+  const mobilePercent = totalVisitorsCount > 0 ? Math.round((mobileCount / totalVisitorsCount) * 100) : 50;
 
   const aiQueriesCount = events.filter((e) => e.type === "ai_question_asked").length;
   const cycleCalcsCount = events.filter((e) => e.type === "cycle_calculated").length;
   const emergencyClicksCount = events.filter((e) => e.type === "emergency_helpline_clicked").length;
-  const scholarshipsViewCount = events.filter((e) => e.type === "scholarship_viewed").length;
+  const scholarshipsViewCount = events.filter((e) => e.type === "scholarship_viewed" || e.type === "scholarship_finder_used").length;
 
   // Page breakdown count
   const pageVisits = {
@@ -180,8 +183,9 @@ export default function AdminPanel({ onClose }) {
       eventTypeFilter === "All" ||
       (eventTypeFilter === "Pages" && e.type === "page_view") ||
       (eventTypeFilter === "AI Assistant" && e.type === "ai_question_asked") ||
-      (eventTypeFilter === "Scholarships" && e.type.includes("scholarship")) ||
+      (eventTypeFilter === "Scholarships" && (e.type.includes("scholarship") || e.type.includes("scheme"))) ||
       (eventTypeFilter === "Health Tools" && (e.type === "cycle_calculated" || e.type === "health_topic_read")) ||
+      (eventTypeFilter === "Reels" && e.type === "reel_watched") ||
       (eventTypeFilter === "Emergency" && (e.type === "emergency_helpline_clicked" || e.type === "panic_exit_triggered"));
 
     const query = searchQuery.toLowerCase();
@@ -246,7 +250,7 @@ export default function AdminPanel({ onClose }) {
       <div
         className="modal-content"
         style={{
-          maxWidth: 1080,
+          maxWidth: 1100,
           width: "96%",
           height: "92vh",
           padding: "24px 28px",
@@ -261,9 +265,17 @@ export default function AdminPanel({ onClose }) {
               <Activity size={22} />
             </div>
             <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                 <h2 style={{ margin: 0, fontSize: 20 }}>Sakhi Analytics & User Journey Portal</h2>
-                <span className="tag" style={{ background: "#e0f2fe", color: "#0369a1" }}>ANONYMOUS TRACKING ACTIVE</span>
+                {isLiveCloud ? (
+                  <span className="tag" style={{ background: "#ecfdf5", color: "#065f46", border: "1px solid #a7f3d0" }}>
+                    🟢 LIVE CLOUD DATABASE (Supabase)
+                  </span>
+                ) : (
+                  <span className="tag" style={{ background: "#fffbeb", color: "#92400e", border: "1px solid #fde68a" }}>
+                    🟡 LOCAL PREVIEW (Connect Supabase in src/config/supabase.js)
+                  </span>
+                )}
               </div>
               <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>
                 Auditing user paths, feature usage, and scheme queries without privacy invasion
@@ -272,8 +284,8 @@ export default function AdminPanel({ onClose }) {
           </div>
 
           <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-            <button className="btn secondary sm" onClick={loadData} title="Refresh Live Data">
-              <RefreshCw size={14} /> Refresh
+            <button className="btn secondary sm" onClick={loadData} disabled={isLoadingData} title="Refresh Live Data">
+              <RefreshCw size={14} className={isLoadingData ? "animate-spin" : ""} /> {isLoadingData ? "Loading..." : "Refresh"}
             </button>
             <button className="btn secondary sm" onClick={handleExportCSV} title="Export CSV for Excel">
               <Download size={14} /> Export CSV
@@ -296,7 +308,7 @@ export default function AdminPanel({ onClose }) {
             { id: "overview", label: "📊 Analytics Overview" },
             { id: "feed", label: `⚡ Live Journey Feed (${events.length})` },
             { id: "visitors", label: `👥 Visitor Directory (${Object.keys(visitors).length})` },
-            { id: "cloud", label: "☁️ Database & Export Setup" }
+            { id: "cloud", label: `☁️ Cloud Database (${isLiveCloud ? "Connected" : "Setup Guide"})` }
           ].map((tab) => (
             <button
               key={tab.id}
@@ -317,7 +329,7 @@ export default function AdminPanel({ onClose }) {
               <div style={{ padding: 16, borderRadius: 16, background: "var(--pink2)", border: "1px solid #f8dbe9" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--brand)" }}>
                   <Users size={20} />
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>UNIQUE USERS</span>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>UNIQUE VISITORS</span>
                 </div>
                 <div style={{ fontSize: 26, fontWeight: 800, marginTop: 8, color: "var(--ink)" }}>
                   {totalVisitorsCount}
@@ -343,13 +355,13 @@ export default function AdminPanel({ onClose }) {
               <div style={{ padding: 16, borderRadius: 16, background: "var(--mint)", border: "1px solid #c9eed8" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", color: "var(--mint-dark)" }}>
                   <Bot size={20} />
-                  <span style={{ fontSize: 11, fontWeight: 700 }}>AI HEALTH CHATS</span>
+                  <span style={{ fontSize: 11, fontWeight: 700 }}>DR. SUSHMA CHATS</span>
                 </div>
                 <div style={{ fontSize: 26, fontWeight: 800, marginTop: 8, color: "var(--ink)" }}>
                   {aiQueriesCount}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                  Sakhi AI queries asked
+                  Health questions asked
                 </div>
               </div>
 
@@ -362,7 +374,7 @@ export default function AdminPanel({ onClose }) {
                   {scholarshipsViewCount}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--muted)", marginTop: 4 }}>
-                  Devnarayan, Kalibai, etc.
+                  Location matcher & schemes
                 </div>
               </div>
 
@@ -428,7 +440,7 @@ export default function AdminPanel({ onClose }) {
                 </div>
 
                 <div style={{ padding: "12px 14px", background: "var(--pink2)", borderRadius: 12, fontSize: 12, color: "#613653", lineHeight: 1.5 }}>
-                  💡 <b>Insight:</b> Over 70% of girls access support platforms via mobile phones. The anonymous tracking automatically optimizes for mobile responsive visits.
+                  💡 <b>Real Analytics Mode:</b> {isLiveCloud ? "All actions from every smartphone and laptop across India are being recorded in your central Supabase PostgreSQL table." : "Currently running on local browser preview. To sync data across all visitor phones, add your Supabase credentials in src/config/supabase.js."}
                 </div>
               </div>
             </div>
@@ -452,7 +464,7 @@ export default function AdminPanel({ onClose }) {
               </div>
 
               <div className="filter-bar" style={{ margin: 0 }}>
-                {["All", "Pages", "AI Assistant", "Scholarships", "Health Tools", "Emergency"].map((cat) => (
+                {["All", "Pages", "AI Assistant", "Scholarships", "Health Tools", "Reels", "Emergency"].map((cat) => (
                   <button
                     key={cat}
                     className={`filter-btn ${eventTypeFilter === cat ? "active" : ""}`}
@@ -481,7 +493,7 @@ export default function AdminPanel({ onClose }) {
                     badgeColor = "#fae8ff";
                     textColor = "#86198f";
                     icon = <Bot size={14} />;
-                  } else if (evt.type.includes("scholarship")) {
+                  } else if (evt.type.includes("scholarship") || evt.type.includes("scheme")) {
                     badgeColor = "#fef3c7";
                     textColor = "#92400e";
                     icon = <Compass size={14} />;
@@ -489,6 +501,10 @@ export default function AdminPanel({ onClose }) {
                     badgeColor = "#dcfce7";
                     textColor = "#166534";
                     icon = <Heart size={14} />;
+                  } else if (evt.type === "reel_watched") {
+                    badgeColor = "#fce7f3";
+                    textColor = "#be185d";
+                    icon = <Activity size={14} />;
                   } else if (evt.type === "emergency_helpline_clicked" || evt.type === "panic_exit_triggered") {
                     badgeColor = "#fee2e2";
                     textColor = "#991b1b";
@@ -530,8 +546,9 @@ export default function AdminPanel({ onClose }) {
                             {evt.details?.title ? `“${evt.details.title}”` : ""}
                             {evt.details?.helpline ? `Called helpline: ${evt.details.helpline}` : ""}
                             {evt.details?.topic ? `Asked about: ${evt.details.topic}` : ""}
+                            {evt.details?.state ? `Filtered state: ${evt.details.state} (${evt.details.category})` : ""}
                             {evt.details?.cycleLength ? `Calculated cycle: ${evt.details.cycleLength} days (${evt.details.phase})` : ""}
-                            {!evt.details?.title && !evt.details?.helpline && !evt.details?.topic && !evt.details?.cycleLength && evt.page ? `Navigated to ${evt.page}` : ""}
+                            {!evt.details?.title && !evt.details?.helpline && !evt.details?.topic && !evt.details?.state && !evt.details?.cycleLength && evt.page ? `Navigated to ${evt.page}` : ""}
                           </div>
                         </div>
                       </div>
@@ -606,7 +623,6 @@ export default function AdminPanel({ onClose }) {
                       {visObj?.device && (
                         <div style={{ padding: "10px 12px", background: "#fff", borderRadius: 10, border: "1px solid #eed8e9", fontSize: 12, marginBottom: 14 }}>
                           <div><b>Device:</b> {visObj.device.deviceType} ({visObj.device.browser})</div>
-                          <div><b>Screen:</b> {visObj.device.screenRes}</div>
                           <div><b>First Seen:</b> {new Date(visObj.firstSeen).toLocaleString()}</div>
                         </div>
                       )}
@@ -655,69 +671,41 @@ export default function AdminPanel({ onClose }) {
           </div>
         )}
 
-        {/* Tab 4: Cloud Database & Export */}
+        {/* Tab 4: Cloud Database Setup */}
         {activeTab === "cloud" && (
           <div style={{ flex: 1, overflowY: "auto", paddingRight: 4 }}>
             <div style={{ display: "grid", gridTemplateColumns: "1.2fr 1fr", gap: 16 }}>
-              {/* Supabase Connection Card */}
+              {/* Connection Status Card */}
               <div className="panel" style={{ border: "1px solid #ebd6e8" }}>
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                  <div style={{ width: 38, height: 38, borderRadius: 12, background: "#ecfdf5", display: "grid", placeItems: "center", color: "#059669" }}>
-                    <Database size={20} />
+                  <div style={{ width: 40, height: 40, borderRadius: 12, background: isLiveCloud ? "#ecfdf5" : "#fffbeb", display: "grid", placeItems: "center", color: isLiveCloud ? "#059669" : "#d97706" }}>
+                    <Database size={22} />
                   </div>
                   <div>
-                    <h3 style={{ margin: 0, fontSize: 17 }}>Connect Supabase Cloud Database</h3>
-                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Sync all tracking events to your free Supabase PostgreSQL cloud table</p>
+                    <h3 style={{ margin: 0, fontSize: 17 }}>Central Supabase Database Status</h3>
+                    <p style={{ margin: 0, fontSize: 12, color: "var(--muted)" }}>Configured directly in the codebase for production</p>
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveCloudConfig}>
-                  <label>Supabase Project URL</label>
-                  <input
-                    type="url"
-                    placeholder="https://your-project-id.supabase.co"
-                    value={supabaseUrl}
-                    onChange={(e) => setSupabaseUrl(e.target.value)}
-                  />
-
-                  <label>Supabase Anonymous Public Key (anon_key)</label>
-                  <input
-                    type="password"
-                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6..."
-                    value={supabaseKey}
-                    onChange={(e) => setSupabaseKey(e.target.value)}
-                  />
-
-                  {cloudStatus && (
-                    <div style={{ color: "#166534", background: "#f0fdf4", border: "1px solid #86efac", padding: 10, borderRadius: 10, fontSize: 12.5, marginTop: 12 }}>
-                      ✓ {cloudStatus}
-                    </div>
-                  )}
-
-                  <div style={{ display: "flex", gap: 10, marginTop: 16 }}>
-                    <button type="submit" className="btn sm">
-                      Save Cloud Connection
-                    </button>
-                    {supabaseUrl && (
-                      <button
-                        type="button"
-                        className="btn secondary sm"
-                        onClick={() => {
-                          setSupabaseUrl("");
-                          setSupabaseKey("");
-                          tracker.setSupabaseConfig("", "");
-                          setCloudStatus("Cloud sync disconnected. Operating in local storage mode.");
-                        }}
-                      >
-                        Disconnect Cloud
-                      </button>
-                    )}
+                <div style={{ padding: "14px 16px", borderRadius: 12, background: isLiveCloud ? "#f0fdf4" : "#fff8e6", border: `1px solid ${isLiveCloud ? "#86efac" : "#fde68a"}`, margin: "14px 0" }}>
+                  <div style={{ fontWeight: 800, fontSize: 14, color: isLiveCloud ? "#166534" : "#92400e", display: "flex", alignItems: "center", gap: 6 }}>
+                    {isLiveCloud ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
+                    {isLiveCloud ? "Connected to Central Supabase Cloud" : "Not Yet Configured in Codebase"}
                   </div>
-                </form>
-
-                <div style={{ marginTop: 18, padding: 12, background: "#f8f3f8", borderRadius: 12, fontSize: 12, color: "var(--muted)" }}>
-                  <b>How it works:</b> When configured, events are logged in both local storage and automatically pushed via REST API to your Supabase <code>analytics_events</code> table.
+                  <p style={{ margin: "6px 0 0", fontSize: 13, color: isLiveCloud ? "#166534" : "#78350f" }}>
+                    {isLiveCloud
+                      ? "Every visitor's activity from any phone or computer is being captured in your central database in real time."
+                      : "Currently displaying local browser preview. To sync data across all visitors' phones into one central dashboard, add your Supabase credentials to the code."}
+                  </p>
                 </div>
+
+                <h4 style={{ margin: "16px 0 8px", fontSize: 14 }}>Where to set credentials:</h4>
+                <div style={{ background: "#22162a", color: "#f7e8f5", padding: "12px 14px", borderRadius: 10, fontFamily: "monospace", fontSize: 12 }}>
+                  File: <b>src/config/supabase.js</b>
+                </div>
+                <p style={{ fontSize: 12, color: "var(--muted)", margin: "8px 0 0" }}>
+                  Or define <code>VITE_SUPABASE_URL</code> and <code>VITE_SUPABASE_ANON_KEY</code> in Render / <code>.env</code> file.
+                </p>
               </div>
 
               {/* Data Export & Maintenance Card */}
@@ -741,7 +729,7 @@ export default function AdminPanel({ onClose }) {
                 <div className="panel" style={{ border: "1px solid #fecdd3" }}>
                   <h3 style={{ marginTop: 0, fontSize: 16, color: "var(--danger)" }}>Maintenance Controls</h3>
                   <p style={{ fontSize: 12, color: "var(--muted)", margin: "0 0 12px" }}>
-                    Reset demo tracking data before a live presentation or clear all stored events.
+                    Reset local preview tracking data or wipe local browser logs.
                   </p>
 
                   <div style={{ display: "flex", gap: 10 }}>
@@ -759,13 +747,13 @@ export default function AdminPanel({ onClose }) {
                     <button
                       className="btn danger sm"
                       onClick={() => {
-                        if (confirm("Are you sure you want to clear all user analytics records?")) {
+                        if (confirm("Are you sure you want to clear local user analytics records?")) {
                           tracker.clearData();
                           loadData();
                         }
                       }}
                     >
-                      <Trash2 size={13} /> Wipe All Logs
+                      <Trash2 size={13} /> Clear Local
                     </button>
                   </div>
                 </div>
@@ -775,16 +763,17 @@ export default function AdminPanel({ onClose }) {
             {/* Supabase SQL Instructions */}
             <div className="panel" style={{ marginTop: 16, border: "1px solid #ebd6e8" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                <h4 style={{ margin: 0, fontSize: 14 }}>Supabase SQL Table Setup Script</h4>
+                <div>
+                  <h4 style={{ margin: 0, fontSize: 14 }}>Supabase SQL Table Setup Script</h4>
+                  <p style={{ margin: "2px 0 0", fontSize: 12, color: "var(--muted)" }}>Paste this once into your Supabase SQL Editor and click "Run"</p>
+                </div>
                 <button
                   className="btn secondary sm"
-                  style={{ fontSize: 11 }}
-                  onClick={() => {
-                    navigator.clipboard.writeText(SUPABASE_SQL_SCHEMA);
-                    alert("SQL Schema copied to clipboard! Paste it into Supabase SQL Editor.");
-                  }}
+                  style={{ fontSize: 12 }}
+                  onClick={handleCopySQL}
                 >
-                  Copy SQL Script
+                  {copiedSchema ? <Check size={14} color="#16a34a" /> : <Copy size={14} />}
+                  {copiedSchema ? "Copied to Clipboard!" : "Copy SQL Script"}
                 </button>
               </div>
               <pre
