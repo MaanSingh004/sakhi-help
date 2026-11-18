@@ -73,12 +73,12 @@ export default function AdminPanel({ onClose }) {
 
   const handleLogin = (e) => {
     e.preventDefault();
-    if (passcode === "sakhi2026" || passcode === "admin123" || passcode === "admin") {
+    if (passcode === "Sakhi@0123") {
       setIsAuthenticated(true);
       localStorage.setItem("sakhi_admin_authed", "true");
       setAuthError("");
     } else {
-      setAuthError("Incorrect passcode. Try 'sakhi2026' or 'admin123'.");
+      setAuthError("Incorrect admin password.");
     }
   };
 
@@ -214,7 +214,7 @@ export default function AdminPanel({ onClose }) {
           <form onSubmit={handleLogin}>
             <input
               type="password"
-              placeholder="Enter admin passcode (e.g. sakhi2026)"
+              placeholder="Enter admin password"
               value={passcode}
               onChange={(e) => setPasscode(e.target.value)}
               style={{ textAlign: "center", letterSpacing: 2, fontSize: 16 }}
@@ -236,10 +236,6 @@ export default function AdminPanel({ onClose }) {
               </button>
             </div>
           </form>
-
-          <div style={{ marginTop: 20, padding: "10px", background: "#f8f3f8", borderRadius: 10, fontSize: 11, color: "var(--muted)" }}>
-            💡 Demo Passcode: <b>sakhi2026</b> or <b>admin123</b>
-          </div>
         </div>
       </div>
     );
