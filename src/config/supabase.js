@@ -3,10 +3,10 @@
 
 export const SUPABASE_CONFIG = {
   // 1. Paste your Supabase Project URL below:
-  url: import.meta.env.VITE_SUPABASE_URL || "",
+  url: import.meta.env.VITE_SUPABASE_URL || "https://cayfpqnnbdupeupnmljb.supabase.co",
 
   // 2. Paste your Supabase Anon Public Key below:
-  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || ""
+  anonKey: import.meta.env.VITE_SUPABASE_ANON_KEY || "sb_publishable_7BrP4C5puu-ckFmtaSQP8g_bFKQD1bF"
 };
 
 // Check if credentials are properly provided
